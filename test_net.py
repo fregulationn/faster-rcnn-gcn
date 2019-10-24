@@ -87,6 +87,8 @@ def parse_args():
   parser.add_argument('--vis', dest='vis',
                       help='visualization mode',
                       action='store_true')
+  parser.add_argument('--save_name', dest = 'save_name',
+                      help = 'outputdir name',default = 'faster_rcnn_10', type = str )
   args = parser.parse_args()
   return args
 
@@ -206,7 +208,7 @@ if __name__ == '__main__':
   else:
     thresh = 0.0
 
-  save_name = 'faster_rcnn_10'
+  save_name = args.save_name
   num_images = len(imdb.image_index)
   all_boxes = [[[] for _ in xrange(num_images)]
                for _ in xrange(imdb.num_classes)]

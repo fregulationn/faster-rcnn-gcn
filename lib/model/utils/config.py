@@ -301,6 +301,15 @@ __C.CUDA = False
 
 __C.CROP_RESIZE_WITH_MAX_POOL = True
 
+#
+# GCN options
+#
+__C.GCN = edict()
+__C.GCN.N_FEAT = 1
+__C.GCN.N_HID = 4
+__C.GCN.DROPOUT = 0.5
+__C.GCN.ADJ_FILE = '/home/junjie/Code/faster-rcnn.pytorch/data/VOCdevkit2007/VOC2007/voc_adj.pkl'
+
 import pdb
 def get_output_dir(imdb, weights_filename):
   """Return the directory where experimental artifacts are placed.

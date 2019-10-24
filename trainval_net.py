@@ -78,6 +78,9 @@ def parse_args():
   parser.add_argument('--cag', dest='class_agnostic',
                       help='whether to perform class_agnostic bbox regression',
                       action='store_true')
+  parser.add_argument('--frozen_status', dest='frozen_status',
+                      help='forzen status of RESNET FIXED_BOLOCK',
+                      default=1, type=int)
 
 # config optimization
   parser.add_argument('--o', dest='optimizer',
@@ -194,6 +197,7 @@ if __name__ == '__main__':
   # -- Note: Use validation set and disable the flipped to enable faster loading.
   cfg.TRAIN.USE_FLIPPED = True
   cfg.USE_GPU_NMS = args.cuda
+  cfg.RESNET.FIXED_BLOCKS = args.frozen_status
   imdb, roidb, ratio_list, ratio_index = combined_roidb(args.imdb_name)
   train_size = len(roidb)
 
@@ -279,8 +283,13 @@ if __name__ == '__main__':
     checkpoint = torch.load(load_name)
     args.session = checkpoint['session']
     args.start_epoch = checkpoint['epoch']
-    fasterRCNN.load_state_dict(checkpoint['model'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
+    model_dict = fasterRCNN.state_dict()
+    resume_state_dict = checkpoint['model']
+    resume_dict = {k:v for k,v in resume_state_dict.items() if k in model_dict}
+    model_dict.update(resume_dict)
+    fasterRCNN.load_state_dict(model_dict)
+    # fasterRCNN.load_state_dict(checkpoint['model'])
+    # optimizer.load_state_dict(checkpoint['optimizer'])    
     lr = optimizer.param_groups[0]['lr']
     if 'pooling_mode' in checkpoint.keys():
       cfg.POOLING_MODE = checkpoint['pooling_mode']
@@ -308,10 +317,11 @@ if __name__ == '__main__':
     data_iter = iter(dataloader)
     for step in range(iters_per_epoch):
       data = next(data_iter)
-      im_data.data.resize_(data[0].size()).copy_(data[0])
-      im_info.data.resize_(data[1].size()).copy_(data[1])
-      gt_boxes.data.resize_(data[2].size()).copy_(data[2])
-      num_boxes.data.resize_(data[3].size()).copy_(data[3])
+      with torch.no_grad():
+        im_data.data.resize_(data[0].size()).copy_(data[0])
+        im_info.data.resize_(data[1].size()).copy_(data[1])
+        gt_boxes.data.resize_(data[2].size()).copy_(data[2])
+        num_boxes.data.resize_(data[3].size()).copy_(data[3])
 
       fasterRCNN.zero_grad()
       rois, cls_prob, bbox_pred, \
