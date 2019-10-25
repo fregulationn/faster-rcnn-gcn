@@ -2,6 +2,7 @@ data/*
 models_frozen/*
 models/*
 output/*
+logs/*
 
 # READ THIS BEFORE YOU REFACTOR ME
 #

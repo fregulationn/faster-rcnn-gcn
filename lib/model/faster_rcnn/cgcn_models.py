@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 import math
+from model.utils.config import cfg
 import numpy as np
 
 
@@ -52,8 +53,8 @@ class GCN(nn.Module):
     def forward(self, x, adj):
         x = F.relu(self.gc1(x, adj))
         x = F.dropout(x, self.dropout, training=self.training)
-        x = self.gc2(x, adj)
-        # x = F.relu(self.gc2(x, adj))
+        # x = self.gc2(x, adj)
+        x = F.relu(self.gc2(x, adj))
         # x = F.dropout(x, self.dropout, training=self.training)
         return x
 
@@ -81,7 +82,12 @@ class CGCN(torch.nn.Module):
         x1 = self.Nms_GCN(x1, adj)
         # x1 = F.relu(self.gc2(x1, adj))
 
-        return torch.mul(roi_socres, x1.view(1,-1))
+        if cfg.GCN.REGULAR:
+            regular_term = torch.sum(torch.mul(torch.sub(x1,1),torch.sub(x1,1)))
+        else:
+            regular_term = torch.tensor(0).float().cuda()
+
+        return torch.mul(roi_socres, x1.view(1,-1)), regular_term
     
     def gen_A(self, num_classes, t, adj_file):
         import pickle

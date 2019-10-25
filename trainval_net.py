@@ -114,7 +114,10 @@ def parse_args():
   parser.add_argument('--checkpoint', dest='checkpoint',
                       help='checkpoint to load model',
                       default=0, type=int)
-# log and display
+  parser.add_argument('--flags', dest='flags',
+                      help='dir save modle flag',
+                      default="", type=str)
+# log and display1
   parser.add_argument('--use_tfb', dest='use_tfboard',
                       help='whether use tensorboard',
                       action='store_true')
@@ -185,6 +188,7 @@ if __name__ == '__main__':
   if args.set_cfgs is not None:
     cfg_from_list(args.set_cfgs)
 
+  cfg.RESNET.FIXED_BLOCKS = args.frozen_status
   print('Using config:')
   pprint.pprint(cfg)
   np.random.seed(cfg.RNG_SEED)
@@ -197,13 +201,12 @@ if __name__ == '__main__':
   # -- Note: Use validation set and disable the flipped to enable faster loading.
   cfg.TRAIN.USE_FLIPPED = True
   cfg.USE_GPU_NMS = args.cuda
-  cfg.RESNET.FIXED_BLOCKS = args.frozen_status
   imdb, roidb, ratio_list, ratio_index = combined_roidb(args.imdb_name)
   train_size = len(roidb)
 
   print('{:d} roidb entries'.format(len(roidb)))
 
-  output_dir = args.save_dir + "/" + args.net + "/" + args.dataset
+  output_dir = args.save_dir + "/" + args.net + "/" + args.dataset + args.flags
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
@@ -302,7 +305,7 @@ if __name__ == '__main__':
 
   if args.use_tfboard:
     from tensorboardX import SummaryWriter
-    logger = SummaryWriter("logs")
+    logger = SummaryWriter("logs" + str(args.flags))
 
   for epoch in range(args.start_epoch, args.max_epochs + 1):
     # setting to train mode

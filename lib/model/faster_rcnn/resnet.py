@@ -260,7 +260,10 @@ class resnet(_fasterRCNN):
     for p in self.RCNN_base[0].parameters(): p.requires_grad=False
     for p in self.RCNN_base[1].parameters(): p.requires_grad=False
 
-    assert (0 <= cfg.RESNET.FIXED_BLOCKS < 4)
+    assert (0 <= cfg.RESNET.FIXED_BLOCKS < 5)
+    if cfg.RESNET.FIXED_BLOCKS >= 4:
+      for p in self.RCNN_bbox_pred.parameters(): p.requires_grad=False
+      for p in self.RCNN_cls_score.parameters(): p.requires_grad=False
     if cfg.RESNET.FIXED_BLOCKS >= 3:
       for p in self.RCNN_base[6].parameters(): p.requires_grad=False
     if cfg.RESNET.FIXED_BLOCKS >= 2:

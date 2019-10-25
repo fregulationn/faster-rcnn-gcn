@@ -308,6 +308,7 @@ __C.GCN = edict()
 __C.GCN.N_FEAT = 1
 __C.GCN.N_HID = 4
 __C.GCN.DROPOUT = 0.5
+__C.GCN.REGULAR = False
 __C.GCN.ADJ_FILE = '/home/junjie/Code/faster-rcnn.pytorch/data/VOCdevkit2007/VOC2007/voc_adj.pkl'
 
 import pdb

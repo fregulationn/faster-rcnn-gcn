@@ -101,7 +101,7 @@ class _fasterRCNN(nn.Module):
         # cls_prob = F.softmax(cls_score, 1)
 
         cls_score = self.RCNN_cls_score(pooled_feat)
-        cls_re_score = self.Class_GCN(cls_score[:,1:])
+        cls_re_score, regular_term = self.Class_GCN(cls_score[:,1:])
         new_cls_score = torch.cat((cls_score[:,0].view(-1,1),cls_re_score),dim = -1)
         cls_prob = F.softmax(new_cls_score, 1)
 
@@ -110,7 +110,7 @@ class _fasterRCNN(nn.Module):
 
         if self.training:
             # classification loss
-            RCNN_loss_cls = F.cross_entropy(new_cls_score, rois_label)
+            RCNN_loss_cls = F.cross_entropy(new_cls_score, rois_label) + regular_term
 
             # bounding box regression L1 loss
             RCNN_loss_bbox = _smooth_l1_loss(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)

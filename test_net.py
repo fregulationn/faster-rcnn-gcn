@@ -89,6 +89,9 @@ def parse_args():
                       action='store_true')
   parser.add_argument('--save_name', dest = 'save_name',
                       help = 'outputdir name',default = 'faster_rcnn_10', type = str )
+  parser.add_argument('--flags', dest='flags',
+                      help='dir save modle flag',
+                      default="", type=str)
   args = parser.parse_args()
   return args
 
@@ -144,7 +147,7 @@ if __name__ == '__main__':
 
   print('{:d} roidb entries'.format(len(roidb)))
 
-  input_dir = args.load_dir + "/" + args.net + "/" + args.dataset
+  input_dir = args.load_dir + "/" + args.net + "/" + args.dataset + args.flags
   if not os.path.exists(input_dir):
     raise Exception('There is no input directory for loading network from ' + input_dir)
   load_name = os.path.join(input_dir,
