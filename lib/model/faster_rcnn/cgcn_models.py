@@ -63,7 +63,8 @@ class CGCN(torch.nn.Module):
     def __init__(self, n_feat, n_hid, dropout, num_classes, t=0, adj_file = None):
         super(CGCN, self).__init__()
 
-        self.num_class = num_classes - 1
+        # self.num_class = num_classes - 1
+        self.num_class = num_classes
         self.n_feat =  n_feat
         self.Nms_GCN = GCN(self.n_feat, n_hid, self.n_feat, dropout)
 

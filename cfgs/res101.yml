@@ -18,7 +18,7 @@ GCN:
   N_HID: 4
   DROPOUT: 0.5
   REGULAR: True
-  ADJ_FILE: data/VOCdevkit2007/VOC2007/voc_adj.pkl
+  ADJ_FILE: data/VOCdevkit2007/VOC2007/voc_adj_bg.pkl
 POOLING_SIZE: 7
 POOLING_MODE: align
 CROP_RESIZE_WITH_MAX_POOL: False
