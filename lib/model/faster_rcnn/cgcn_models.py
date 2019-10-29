@@ -53,9 +53,9 @@ class GCN(nn.Module):
     def forward(self, x, adj):
         x = F.relu(self.gc1(x, adj))
         x = F.dropout(x, self.dropout, training=self.training)
-        # x = self.gc2(x, adj)
-        x = F.relu(self.gc2(x, adj))
-        x = F.dropout(x, self.dropout, training=self.training)
+        x = self.gc2(x, adj)
+        # x = F.relu(self.gc2(x, adj))
+        # x = F.dropout(x, self.dropout, training=self.training)
         return x
 
 
@@ -70,6 +70,8 @@ class CGCN(torch.nn.Module):
 
         _adj = self.gen_A(self.num_class , t, adj_file)
         self.A = Parameter(torch.from_numpy(_adj).float())
+        
+        self.A.requires_grad = False
         
     def forward(self, roi_socres):
         roi_socres = F.softmax(roi_socres, dim=1)
