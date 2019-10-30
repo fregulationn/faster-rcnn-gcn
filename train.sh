@@ -4,14 +4,16 @@ CUDA_VISIBLE_DEVICES=0 python trainval_net.py --dataset pascal_voc --net res101 
                   --lr_decay_step 12 --epochs 14\
                   --r True --checkepoch 1 --checkepoch 7 --checkpoint 10021\
                   --frozen_status 4\
-                  --flag t05\
+                  --flag t1\
                   --use_tfb\
+                  --re_class\
                   --cuda
 #                #    --r True --checkepoch 1 --checkepoch 7 --checkpoint 10021\
 
 CUDA_VISIBLE_DEVICES=0 python test_net.py --dataset pascal_voc --net res101 \
                     --checksession 1 --checkepoch 14 --checkpoint 10021 \
-                    --flag t05\
+                    --flag t1\
+                    --re_class\
                     --cuda
 
 # CUDA_VISIBLE_DEVICES=0 python trainval_net.py --dataset pascal_voc --net res101 \
