@@ -11,6 +11,7 @@ TRAIN:
 TEST:
   HAS_RPN: True
 GCN:
+  RE_CLASS: False
   N_FEAT: 1
   N_HID: 4
   DROPOUT: 0.5

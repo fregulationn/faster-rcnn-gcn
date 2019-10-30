@@ -305,6 +305,7 @@ __C.CROP_RESIZE_WITH_MAX_POOL = True
 # GCN options
 #
 __C.GCN = edict()
+__C.GCN.RE_CLASS = False
 __C.GCN.N_FEAT = 1
 __C.GCN.N_HID = 4
 __C.GCN.DROPOUT = 0.5

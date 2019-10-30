@@ -121,6 +121,7 @@ def parse_args():
   parser.add_argument('--use_tfb', dest='use_tfboard',
                       help='whether use tensorboard',
                       action='store_true')
+  parser.add_argument('--re_class', dest = 're_class', help = "whether use GCN to reclass", action = 'store_true')
 
   args = parser.parse_args()
   return args
@@ -159,6 +160,7 @@ if __name__ == '__main__':
   print(args)
 
   if args.dataset == "pascal_voc":
+      # args.imdb_name = "voc_2007_mintrain"
       args.imdb_name = "voc_2007_trainval"
       args.imdbval_name = "voc_2007_test"
       args.set_cfgs = ['ANCHOR_SCALES', '[8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '20']
@@ -187,6 +189,8 @@ if __name__ == '__main__':
     cfg_from_file(args.cfg_file)
   if args.set_cfgs is not None:
     cfg_from_list(args.set_cfgs)
+  if args.re_class:
+    cfg.GCN.RE_CLASS = True
 
   cfg.RESNET.FIXED_BLOCKS = args.frozen_status
   print('Using config:')

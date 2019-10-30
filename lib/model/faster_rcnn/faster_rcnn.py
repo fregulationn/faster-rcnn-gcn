@@ -37,7 +37,9 @@ class _fasterRCNN(nn.Module):
         self.grid_size = cfg.POOLING_SIZE * 2 if cfg.CROP_RESIZE_WITH_MAX_POOL else cfg.POOLING_SIZE
         self.RCNN_roi_crop = _RoICrop()
 
-        self.Class_GCN = CGCN(cfg.GCN.N_FEAT, cfg.GCN.N_HID, cfg.GCN.DROPOUT, self.n_classes, t = 0.4, adj_file = cfg.GCN.ADJ_FILE)
+        
+        if cfg.GCN.RE_CLASS:
+            self.Class_GCN = CGCN(cfg.GCN.N_FEAT, cfg.GCN.N_HID, cfg.GCN.DROPOUT, self.n_classes, t = 0.05, adj_file = cfg.GCN.ADJ_FILE)
 
     def forward(self, im_data, im_info, gt_boxes, num_boxes):
         batch_size = im_data.size(0)
@@ -101,20 +103,33 @@ class _fasterRCNN(nn.Module):
 
         # cls_re_score, regular_term = self.Class_GCN(cls_score[:,1:])
         # new_cls_score = torch.cat((cls_score[:,0].view(-1,1),cls_re_score),dim = -1)
-        # cls_prob = F.softmax(new_cls_score, 1)        
-        cls_score, regular_term = self.Class_GCN(cls_score)
+        # cls_prob = F.softmax(new_cls_score, 1)  
 
-        cls_prob = F.softmax(cls_score, 1)
+        # cls_prob_old = F.softmax(cls_score, 1)
+        if cfg.GCN.RE_CLASS:
+            cls_score, regular_term = self.Class_GCN(cls_score)
+        
+        
+        cls_prob= F.softmax(cls_score, 1)
+        # cls_prob = torch.where(cls_prob_new > 0.2, cls_prob_new, cls_prob_old)
+        
         RCNN_loss_cls = 0
         RCNN_loss_bbox = 0
 
         if self.training:
             # classification loss
-            RCNN_loss_cls = F.cross_entropy(cls_score, rois_label) + regular_term
-
+            if cfg.GCN.RE_CLASS:
+                RCNN_loss_cls = F.cross_entropy(cls_score, rois_label) + regular_term
+            else:
+                RCNN_loss_cls = F.cross_entropy(cls_score, rois_label)
+            
             # bounding box regression L1 loss
             RCNN_loss_bbox = _smooth_l1_loss(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
 
+            rpn_loss_cls = torch.unsqueeze(rpn_loss_cls, 0)
+            rpn_loss_bbox = torch.unsqueeze(rpn_loss_bbox, 0)
+            RCNN_loss_cls = torch.unsqueeze(RCNN_loss_cls, 0)
+            RCNN_loss_bbox = torch.unsqueeze(RCNN_loss_bbox, 0)
 
         cls_prob = cls_prob.view(batch_size, rois.size(1), -1)
         bbox_pred = bbox_pred.view(batch_size, rois.size(1), -1)
