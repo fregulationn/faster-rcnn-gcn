@@ -61,7 +61,7 @@ def parse_args():
                       nargs=argparse.REMAINDER)
   parser.add_argument('--load_dir', dest='load_dir',
                       help='directory to load models',
-                      default="/srv/share/jyang375/models")
+                      default="models")
   parser.add_argument('--image_dir', dest='image_dir',
                       help='directory to load images for demo',
                       default="images")
@@ -95,6 +95,10 @@ def parse_args():
   parser.add_argument('--webcam_num', dest='webcam_num',
                       help='webcam ID number',
                       default=-1, type=int)
+  parser.add_argument('--flags', dest='flags',
+                      help='dir save modle flag',
+                      default="", type=str)
+  parser.add_argument('--re_class', dest = 're_class', help = "whether use GCN to reclass", action = 'store_true')
 
   args = parser.parse_args()
   return args
@@ -148,7 +152,8 @@ if __name__ == '__main__':
     cfg_from_file(args.cfg_file)
   if args.set_cfgs is not None:
     cfg_from_list(args.set_cfgs)
-
+  if args.re_class:
+    cfg.GCN.RE_CLASS = True
   cfg.USE_GPU_NMS = args.cuda
 
   print('Using config:')
@@ -158,7 +163,7 @@ if __name__ == '__main__':
   # train set
   # -- Note: Use validation set and disable the flipped to enable faster loading.
 
-  input_dir = args.load_dir + "/" + args.net + "/" + args.dataset
+  input_dir = args.load_dir + "/" + args.net + "/" + args.dataset + args.flags
   if not os.path.exists(input_dir):
     raise Exception('There is no input directory for loading network from ' + input_dir)
   load_name = os.path.join(input_dir,
@@ -232,7 +237,7 @@ if __name__ == '__main__':
 
   start = time.time()
   max_per_image = 100
-  thresh = 0.05
+  thresh = 0.1
   vis = True
 
   webcam_num = args.webcam_num

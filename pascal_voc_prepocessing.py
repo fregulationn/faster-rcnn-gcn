@@ -29,7 +29,7 @@ if __name__ == '__main__':
     if args.dataset == "pascal_voc":
         args.imdb_name = "voc_2007_trainval"
     
-    mlgcn_matrix = pickle.load(open(cfg.GCN.ADJ_FILE, 'rb'))
+    mlgcn_matrix = pickle.load(open("/home/junjie/Framework/ML_GCN/data/coco/coco_adj.pkl", 'rb'))
     # with open("rb") as f:
     #      = pickle.loads(f,pickle.HIGHEST_PROTOCOL)
 
@@ -58,23 +58,31 @@ if __name__ == '__main__':
                 M_matrx[index_j, index_k] += 1
                 M_matrx[index_k, index_j] += 1
     
-    M_matrx[1:, 1:] = mlgcn_matrix['adj']
-    N_list[1:] =mlgcn_matrix['nums']
-    N_list[0] = num_images
-
-    with open('data/VOCdevkit2007/VOC2007/voc_adj_bg.pkl','wb') as f:
-        pickle.dump({'adj':M_matrx, 'nums':N_list}, f)
+    # M_matrx[1:, 1:] = mlgcn_matrix['adj']
+    # N_list[1:] =mlgcn_matrix['nums']
+    # N_list[0] = num_images
     
-    M_matrx[0, 1:] = N_list[1:]
-    with open('data/VOCdevkit2007/VOC2007/voc_adj_bg_up.pkl','wb') as f:
+
+    # with open('data/VOCdevkit2007/VOC2007/voc_adj_bg.pkl','wb') as f:
+    #     pickle.dump({'adj':M_matrx, 'nums':N_list}, f)
+    
+    # M_matrx[0, 1:] = N_list[1:]
+    # with open('data/VOCdevkit2007/VOC2007/voc_adj_bg_up.pkl','wb') as f:
+    #     pickle.dump({'adj':M_matrx, 'nums':N_list}, f)
+
+    coco_index = [1, 2, 3, 4, 5, 6, 7, 9, 16, 17, 18, 19, 20, 21, 44, 62, 63, 64, 67, 72]
+    coco_index = np.array(coco_index) -1
+
+    M_matrx[1:, 1:] = mlgcn_matrix['adj'][coco_index-1, :][:, coco_index-1]
+    N_list[1:] =mlgcn_matrix['nums'][coco_index-1]
+    N_list[0] = 1
+
+    # M_matrx[1:, 0] = N_list[1:]
+    with open('data/VOCdevkit2007/VOC2007/voc_adj_bg_coco.pkl','wb') as f:
         pickle.dump({'adj':M_matrx, 'nums':N_list}, f)
 
-    M_matrx[1:, 0] = N_list[1:]
-    with open('data/VOCdevkit2007/VOC2007/voc_adj_bg_upleft.pkl','wb') as f:
-        pickle.dump({'adj':M_matrx, 'nums':N_list}, f)
 
-
-    t = 0.4
+    t = 0.05
     _adj = M_matrx
     _nums = N_list
     _nums = _nums[:, np.newaxis]
