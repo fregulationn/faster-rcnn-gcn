@@ -115,13 +115,14 @@ class _fasterRCNN(nn.Module):
         
         RCNN_loss_cls = 0
         RCNN_loss_bbox = 0
+        RCNN_loss_regular = 0
 
         if self.training:
             # classification loss
             if cfg.GCN.RE_CLASS:
-                RCNN_loss_cls = F.cross_entropy(cls_score, rois_label) + regular_term
-            else:
-                RCNN_loss_cls = F.cross_entropy(cls_score, rois_label)
+                RCNN_loss_regular = regular_term
+            
+            RCNN_loss_cls = F.cross_entropy(cls_score, rois_label)
             
             # bounding box regression L1 loss
             RCNN_loss_bbox = _smooth_l1_loss(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
@@ -134,7 +135,7 @@ class _fasterRCNN(nn.Module):
         cls_prob = cls_prob.view(batch_size, rois.size(1), -1)
         bbox_pred = bbox_pred.view(batch_size, rois.size(1), -1)
 
-        return rois, cls_prob, bbox_pred, rpn_loss_cls, rpn_loss_bbox, RCNN_loss_cls, RCNN_loss_bbox, rois_label
+        return rois, cls_prob, bbox_pred, rpn_loss_cls, rpn_loss_bbox, RCNN_loss_cls, RCNN_loss_bbox, RCNN_loss_regular, rois_label
 
     def _init_weights(self):
         def normal_init(m, mean, stddev, truncated=False):

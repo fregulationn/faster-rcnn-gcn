@@ -2,8 +2,8 @@ import pickle
 import os
 import numpy as np
 
-same_name_list = ['origin', 'rec_bgul']
-out_put_dir = 'output/res101/voc_2007_test'
+same_name_list = ['lowshot1', 'lowshotreclass']
+out_put_dir = 'output/vgg16/voc_2007_test'
 class_name = [ 'aeroplane', 'bicycle', 'bird', 'boat',
                          'bottle', 'bus', 'car', 'cat', 'chair',
                          'cow', 'diningtable', 'dog', 'horse',

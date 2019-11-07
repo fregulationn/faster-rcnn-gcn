@@ -52,9 +52,9 @@ class GCN(nn.Module):
 
     def forward(self, x, adj):
         x = F.relu(self.gc1(x, adj))
-        x = F.dropout(x, self.dropout, training=self.training)
-        x = self.gc2(x, adj)
-        # x = F.relu(self.gc2(x, adj))
+        # x = F.dropout(x, self.dropout, training=self.training)
+        # x = self.gc2(x, adj)
+        x = F.relu(self.gc2(x, adj))
         # x = F.dropout(x, self.dropout, training=self.training)
         return x
 
@@ -90,7 +90,10 @@ class CGCN(torch.nn.Module):
         else:
             regular_term = torch.tensor(0).float().cuda()
 
-        return torch.mul(roi_socres, x1.view(1,-1)), regular_term
+        # output = torch.mul(roi_socres, x1.view(1,-1))
+        # output[:, 0] = roi_socres[:, 0]
+        
+        return output, regular_term
     
     def gen_A(self, num_classes, t, adj_file):
         import pickle

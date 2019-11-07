@@ -245,7 +245,7 @@ if __name__ == '__main__':
       det_tic = time.time()
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
-      RCNN_loss_cls, RCNN_loss_bbox, \
+      RCNN_loss_cls, RCNN_loss_bbox, RCNN_loss_regular,\
       rois_label = fasterRCNN(im_data, im_info, gt_boxes, num_boxes)
 
       scores = cls_prob.data
