@@ -29,9 +29,9 @@ from model.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
 from model.rpn.bbox_transform import clip_boxes
 from model.nms.nms_wrapper import nms
 from model.rpn.bbox_transform import bbox_transform_inv
-from model.utils.net_utils import save_net, load_net, vis_detections
+from model.utils.net_utils import save_net, load_net, vis_detections, vis_detections_color
 
-from model.faster_rcnn.vgg16 import vgg16
+from model.faster_rcnn.vgg16_gcn import vgg16
 from model.faster_rcnn.resnet import resnet
 
 try:
@@ -87,12 +87,6 @@ def parse_args():
   parser.add_argument('--vis', dest='vis',
                       help='visualization mode',
                       action='store_true')
-  parser.add_argument('--save_name', dest = 'save_name',
-                      help = 'outputdir name',default = 'faster_rcnn_10', type = str )
-  parser.add_argument('--flags', dest='flags',
-                      help='dir save modle flag',
-                      default="", type=str)
-  parser.add_argument('--re_class', dest = 're_class', help = "whether use GCN to reclass", action = 'store_true')
   args = parser.parse_args()
   return args
 
@@ -138,9 +132,6 @@ if __name__ == '__main__':
     cfg_from_file(args.cfg_file)
   if args.set_cfgs is not None:
     cfg_from_list(args.set_cfgs)
-  
-  if args.re_class:
-    cfg.GCN.RE_CLASS = True
 
   print('Using config:')
   pprint.pprint(cfg)
@@ -151,7 +142,7 @@ if __name__ == '__main__':
 
   print('{:d} roidb entries'.format(len(roidb)))
 
-  input_dir = args.load_dir + "/" + args.net + "/" + args.dataset + args.flags
+  input_dir = args.load_dir + "/" + args.net + "/" + args.dataset
   if not os.path.exists(input_dir):
     raise Exception('There is no input directory for loading network from ' + input_dir)
   load_name = os.path.join(input_dir,
@@ -215,7 +206,7 @@ if __name__ == '__main__':
   else:
     thresh = 0.0
 
-  save_name = args.save_name
+  save_name = 'faster_rcnn_10'
   num_images = len(imdb.image_index)
   all_boxes = [[[] for _ in xrange(num_images)]
                for _ in xrange(imdb.num_classes)]
@@ -235,7 +226,6 @@ if __name__ == '__main__':
   fasterRCNN.eval()
   empty_array = np.transpose(np.array([[],[],[],[],[]]), (1,0))
   for i in range(num_images):
-
       data = next(data_iter)
       im_data.data.resize_(data[0].size()).copy_(data[0])
       im_info.data.resize_(data[1].size()).copy_(data[1])
@@ -245,8 +235,9 @@ if __name__ == '__main__':
       det_tic = time.time()
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
-      RCNN_loss_cls, RCNN_loss_bbox, RCNN_loss_regular,\
+      RCNN_loss_cls, RCNN_loss_bbox, \
       rois_label = fasterRCNN(im_data, im_info, gt_boxes, num_boxes)
+      #rois_label, RCNN_loss_mask = fasterRCNN(im_data, im_info, gt_boxes, num_boxes)
 
       scores = cls_prob.data
       boxes = rois.data[:, :, 1:5]
@@ -299,7 +290,8 @@ if __name__ == '__main__':
             keep = nms(cls_dets, cfg.TEST.NMS)
             cls_dets = cls_dets[keep.view(-1).long()]
             if vis:
-              im2show = vis_detections(im2show, imdb.classes[j], cls_dets.cpu().numpy(), 0.1)
+              #im2show = vis_detections(im2show, imdb.classes[j], cls_dets.cpu().numpy(), 0.1)
+              im2show = vis_detections_color(im2show, j, imdb.classes[j], cls_dets.cpu().numpy(), 0.3)
             all_boxes[j][i] = cls_dets.cpu().numpy()
           else:
             all_boxes[j][i] = empty_array
@@ -320,14 +312,12 @@ if __name__ == '__main__':
       sys.stdout.write('im_detect: {:d}/{:d} {:.3f}s {:.3f}s   \r' \
           .format(i + 1, num_images, detect_time, nms_time))
       sys.stdout.flush()
+      print ('im_detect: {:d}/{:d} {:.3f}s {:.3f}s'.format(i + 1, num_images, detect_time, nms_time))
 
       if vis:
-          # print(os.path.join(output_dir,'detect_pic',imdb.image_index[i]+'.jpg'))
-          
-          cv2.imwrite(os.path.join(output_dir,'detect_pic',imdb.image_index[i]+'.jpg'), im2show)
-
-          # cv2.imwrite('result.png', im2show)
-          # pdb.set_trace()
+          path = 'vis/{:06d}.png'.format(i)
+          cv2.imwrite(path, im2show)
+          #pdb.set_trace()
           #cv2.imshow('test', im2show)
           #cv2.waitKey(0)
 

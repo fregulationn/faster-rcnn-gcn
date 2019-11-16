@@ -10,6 +10,30 @@ import cv2
 import pdb
 import random
 
+color = [
+    (0,255,0),
+    (255,0,0),
+    (0,0,255),
+    (0,255,255),
+    (255,0,255),
+    (255,255,0),
+    (255,124,255),
+    (124,255,124),
+    (124,124,255),
+    (30,120,240),
+    (120,240,120),
+    (240,30,120),
+    (190,0,80),
+    (150,150,160),
+    (100,200,150),
+    (30,255,170),
+    (255,120,90),
+    (210,140,30),
+    (240,80,120),
+    (0,80,255),
+    (255,255,255),
+]
+
 def save_net(fname, net):
     import h5py
     h5f = h5py.File(fname, mode='w')
@@ -57,6 +81,22 @@ def vis_detections(im, class_name, dets, thresh=0.8):
             cv2.rectangle(im, bbox[0:2], bbox[2:4], (0, 204, 0), 2)
             cv2.putText(im, '%s: %.3f' % (class_name, score), (bbox[0], bbox[1] + 15), cv2.FONT_HERSHEY_PLAIN,
                         1.0, (0, 0, 255), thickness=1)
+    return im
+    
+def vis_detections_color(im, cls, class_name, dets, thresh=0.8):
+    """Visual debugging of detections."""
+    for i in range(np.minimum(10, dets.shape[0])):
+        bbox = tuple(int(np.round(x)) for x in dets[i, :4])
+        score = dets[i, -1]
+        if score > thresh:
+            if score > 0.75:
+                cv2.rectangle(im, bbox[0:2], bbox[2:4], color[cls], 3)
+                cv2.putText(im, '%s: %.3f' % (class_name, score), (bbox[0], bbox[1] + 15), cv2.FONT_HERSHEY_PLAIN,
+                            1.0, (0, 255, 0), thickness=1)
+            else:
+                cv2.rectangle(im, bbox[0:2], bbox[2:4], color[cls], 1)
+                cv2.putText(im, '%s: %.3f' % (class_name, score), (bbox[0], bbox[1] + 15), cv2.FONT_HERSHEY_PLAIN,
+                            1.0, (0, 0, 255), thickness=1)
     return im
 
 

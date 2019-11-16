@@ -223,21 +223,11 @@ class resnet(_fasterRCNN):
     self.dout_base_model = 1024
     self.pretrained = pretrained
     self.class_agnostic = class_agnostic
-    self.num_layers = num_layers
 
     _fasterRCNN.__init__(self, classes, class_agnostic)
 
   def _init_modules(self):
     resnet = resnet101()
-
-    if self.num_layers == 18:
-        resnet = resnet18()
-    if self.num_layers == 34:
-        resnet = resnet34()     
-    if self.num_layers == 50:
-        resnet = resnet50()
-    if self.num_layers == 152:
-        resnet = resnet152()
 
     if self.pretrained == True:
       print("Loading pretrained weights from %s" %(self.model_path))
@@ -260,10 +250,7 @@ class resnet(_fasterRCNN):
     for p in self.RCNN_base[0].parameters(): p.requires_grad=False
     for p in self.RCNN_base[1].parameters(): p.requires_grad=False
 
-    assert (0 <= cfg.RESNET.FIXED_BLOCKS < 5)
-    if cfg.RESNET.FIXED_BLOCKS >= 4:
-      for p in self.RCNN_bbox_pred.parameters(): p.requires_grad=False
-      for p in self.RCNN_cls_score.parameters(): p.requires_grad=False
+    assert (0 <= cfg.RESNET.FIXED_BLOCKS < 4)
     if cfg.RESNET.FIXED_BLOCKS >= 3:
       for p in self.RCNN_base[6].parameters(): p.requires_grad=False
     if cfg.RESNET.FIXED_BLOCKS >= 2:

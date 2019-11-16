@@ -28,10 +28,15 @@ from roi_data_layer.roidb import combined_roidb
 from roi_data_layer.roibatchLoader import roibatchLoader
 from model.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
 from model.utils.net_utils import weights_normal_init, save_net, load_net, \
-      adjust_learning_rate, save_checkpoint, clip_gradient
+      adjust_learning_rate, save_checkpoint, clip_gradient, vis_detections
 
-from model.faster_rcnn.vgg16 import vgg16
+from model.faster_rcnn.vgg16_gcn import vgg16
 from model.faster_rcnn.resnet import resnet
+
+from model.rpn.bbox_transform import clip_boxes
+from model.nms.nms_wrapper import nms
+from model.rpn.bbox_transform import bbox_transform_inv
+import cv2
 
 def parse_args():
   """
@@ -78,9 +83,6 @@ def parse_args():
   parser.add_argument('--cag', dest='class_agnostic',
                       help='whether to perform class_agnostic bbox regression',
                       action='store_true')
-  parser.add_argument('--frozen_status', dest='frozen_status',
-                      help='forzen status of RESNET FIXED_BOLOCK',
-                      default=1, type=int)
 
 # config optimization
   parser.add_argument('--o', dest='optimizer',
@@ -114,14 +116,10 @@ def parse_args():
   parser.add_argument('--checkpoint', dest='checkpoint',
                       help='checkpoint to load model',
                       default=0, type=int)
-  parser.add_argument('--flags', dest='flags',
-                      help='dir save modle flag',
-                      default="", type=str)
-# log and display1
+# log and display
   parser.add_argument('--use_tfb', dest='use_tfboard',
                       help='whether use tensorboard',
                       action='store_true')
-  parser.add_argument('--re_class', dest = 're_class', help = "whether use GCN to reclass", action = 'store_true')
 
   args = parser.parse_args()
   return args
@@ -160,7 +158,6 @@ if __name__ == '__main__':
   print(args)
 
   if args.dataset == "pascal_voc":
-      # args.imdb_name = "voc_2007_mintrain"
       args.imdb_name = "voc_2007_trainval"
       args.imdbval_name = "voc_2007_test"
       args.set_cfgs = ['ANCHOR_SCALES', '[8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '20']
@@ -189,10 +186,7 @@ if __name__ == '__main__':
     cfg_from_file(args.cfg_file)
   if args.set_cfgs is not None:
     cfg_from_list(args.set_cfgs)
-  if args.re_class:
-    cfg.GCN.RE_CLASS = True
 
-  cfg.RESNET.FIXED_BLOCKS = args.frozen_status
   print('Using config:')
   pprint.pprint(cfg)
   np.random.seed(cfg.RNG_SEED)
@@ -207,10 +201,11 @@ if __name__ == '__main__':
   cfg.USE_GPU_NMS = args.cuda
   imdb, roidb, ratio_list, ratio_index = combined_roidb(args.imdb_name)
   train_size = len(roidb)
+  #train_size = 1000
 
   print('{:d} roidb entries'.format(len(roidb)))
 
-  output_dir = args.save_dir + "/" + args.net + "/" + args.dataset + args.flags
+  output_dir = args.save_dir + "/" + args.net + "/" + args.dataset
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
@@ -227,6 +222,7 @@ if __name__ == '__main__':
   im_info = torch.FloatTensor(1)
   num_boxes = torch.LongTensor(1)
   gt_boxes = torch.FloatTensor(1)
+  origin_data = torch.FloatTensor(1)
 
   # ship to cuda
   if args.cuda:
@@ -234,12 +230,14 @@ if __name__ == '__main__':
     im_info = im_info.cuda()
     num_boxes = num_boxes.cuda()
     gt_boxes = gt_boxes.cuda()
+    origin_data = origin_data.cuda()
 
   # make variable
   im_data = Variable(im_data)
   im_info = Variable(im_info)
   num_boxes = Variable(num_boxes)
   gt_boxes = Variable(gt_boxes)
+  origin_data = Variable(origin_data)
 
   if args.cuda:
     cfg.CUDA = True
@@ -290,14 +288,16 @@ if __name__ == '__main__':
     checkpoint = torch.load(load_name)
     args.session = checkpoint['session']
     args.start_epoch = checkpoint['epoch']
+
+    # update 20191114: filter out unnecessary keys
+    state_dict = checkpoint['model']
     model_dict = fasterRCNN.state_dict()
-    resume_state_dict = checkpoint['model']
-    resume_dict = {k:v for k,v in resume_state_dict.items() if k in model_dict}
-    model_dict.update(resume_dict)
+    state_dict_filt = {k:v for k,v in state_dict.items() if k in model_dict}
+    model_dict.update(state_dict_filt)
     fasterRCNN.load_state_dict(model_dict)
-    # fasterRCNN.load_state_dict(checkpoint['model'])
-    # optimizer.load_state_dict(checkpoint['optimizer'])    
-    lr = optimizer.param_groups[0]['lr']
+
+    # optimizer.load_state_dict(checkpoint['optimizer'])
+    # lr = optimizer.param_groups[0]['lr']
     if 'pooling_mode' in checkpoint.keys():
       cfg.POOLING_MODE = checkpoint['pooling_mode']
     print("loaded checkpoint %s" % (load_name))
@@ -309,7 +309,7 @@ if __name__ == '__main__':
 
   if args.use_tfboard:
     from tensorboardX import SummaryWriter
-    logger = SummaryWriter("logs" + str(args.flags))
+    logger = SummaryWriter("logs")
 
   for epoch in range(args.start_epoch, args.max_epochs + 1):
     # setting to train mode
@@ -324,21 +324,20 @@ if __name__ == '__main__':
     data_iter = iter(dataloader)
     for step in range(iters_per_epoch):
       data = next(data_iter)
-      with torch.no_grad():
-        im_data.data.resize_(data[0].size()).copy_(data[0])
-        im_info.data.resize_(data[1].size()).copy_(data[1])
-        gt_boxes.data.resize_(data[2].size()).copy_(data[2])
-        num_boxes.data.resize_(data[3].size()).copy_(data[3])
+      im_data.data.resize_(data[0].size()).copy_(data[0])
+      im_info.data.resize_(data[1].size()).copy_(data[1])
+      gt_boxes.data.resize_(data[2].size()).copy_(data[2])
+      num_boxes.data.resize_(data[3].size()).copy_(data[3])
+      origin_data.data.resize_(data[4].size()).copy_(data[4])
 
       fasterRCNN.zero_grad()
       rois, cls_prob, bbox_pred, \
       rpn_loss_cls, rpn_loss_box, \
-      RCNN_loss_cls, RCNN_loss_bbox, RCNN_loss_regular,\
+      RCNN_loss_cls, RCNN_loss_bbox, \
       rois_label = fasterRCNN(im_data, im_info, gt_boxes, num_boxes)
 
-      beta = 0.1
       loss = rpn_loss_cls.mean() + rpn_loss_box.mean() \
-           + RCNN_loss_cls.mean() + RCNN_loss_bbox.mean() + beta * RCNN_loss_regular
+           + RCNN_loss_cls.mean() + RCNN_loss_bbox.mean()
       loss_temp += loss.item()
 
       # backward
@@ -358,7 +357,6 @@ if __name__ == '__main__':
           loss_rpn_box = rpn_loss_box.mean().item()
           loss_rcnn_cls = RCNN_loss_cls.mean().item()
           loss_rcnn_box = RCNN_loss_bbox.mean().item()
-          loss_rcnn_regular = RCNN_loss_regular
           fg_cnt = torch.sum(rois_label.data.ne(0))
           bg_cnt = rois_label.data.numel() - fg_cnt
         else:
@@ -366,28 +364,65 @@ if __name__ == '__main__':
           loss_rpn_box = rpn_loss_box.item()
           loss_rcnn_cls = RCNN_loss_cls.item()
           loss_rcnn_box = RCNN_loss_bbox.item()
-          loss_rcnn_regular = RCNN_loss_regular
           fg_cnt = torch.sum(rois_label.data.ne(0))
           bg_cnt = rois_label.data.numel() - fg_cnt
 
         print("[session %d][epoch %2d][iter %4d/%4d] loss: %.4f, lr: %.2e" \
                                 % (args.session, epoch, step, iters_per_epoch, loss_temp, lr))
         print("\t\t\tfg/bg=(%d/%d), time cost: %f" % (fg_cnt, bg_cnt, end-start))
-        print("\t\t\trpn_cls: %.4f, rpn_box: %.4f, rcnn_cls: %.4f, rcnn_box %.4f, rcnn_regular: %.4f"\
-                      % (loss_rpn_cls, loss_rpn_box, loss_rcnn_cls, loss_rcnn_box, loss_rcnn_regular))
+        print("\t\t\trpn_cls: %.4f, rpn_box: %.4f, rcnn_cls: %.4f, rcnn_box %.4f" \
+                      % (loss_rpn_cls, loss_rpn_box, loss_rcnn_cls, loss_rcnn_box))
         if args.use_tfboard:
           info = {
             'loss': loss_temp,
             'loss_rpn_cls': loss_rpn_cls,
             'loss_rpn_box': loss_rpn_box,
             'loss_rcnn_cls': loss_rcnn_cls,
-            'loss_rcnn_box': loss_rcnn_box,
-            'loss_rcnn_regular' : loss_rcnn_regular
+            'loss_rcnn_box': loss_rcnn_box
           }
           logger.add_scalars("logs_s_{}/losses".format(args.session), info, (epoch - 1) * iters_per_epoch + step)
 
         loss_temp = 0
         start = time.time()
+
+
+        # scores = cls_prob.data
+        # boxes = rois.data[:, :, 1:5]
+
+        # _ = torch.from_numpy(np.tile(boxes, (1, scores.shape[1])))
+        # pred_boxes = _.cuda() if args.cuda > 0 else _
+        # pred_boxes /= data[1][0][2].item()
+
+        # scores = scores.squeeze()
+        # pred_boxes = pred_boxes.squeeze()
+
+        # # 11.15 adjust the show code
+        # if True:
+        #     im2show = np.copy(data[0]) + cfg.PIXEL_MEANS.reshape((3, 1, 1))
+        #     im2show = np.ascontiguousarray(np.transpose(im2show, (1, 2, 0)))
+        #     for j in range(1, imdb.num_classes):
+        #         inds = torch.nonzero(scores[:, j] > 0.3).view(-1)
+        #         # if there is det
+        #         if inds.numel() > 0:
+        #             cls_scores = scores[:, j][inds]
+        #             _, order = torch.sort(cls_scores, 0, True)
+        #             if args.class_agnostic:
+        #                 cls_boxes = pred_boxes[inds, :]
+        #             else:
+        #                 cls_boxes = pred_boxes[inds][:, j * 4:(j + 1) * 4]
+
+        #             cls_dets = torch.cat((cls_boxes, cls_scores.unsqueeze(1)), 1)
+        #             # cls_dets = torch.cat((cls_boxes, cls_scores), 1)
+        #             cls_dets = cls_dets[order]
+        #             keep = nms(cls_dets, cfg.TEST.NMS)
+        #             cls_dets = cls_dets[keep.view(-1).long()]
+        #             im2show = vis_detections(im2show, imdb.classes[j], cls_dets.cpu().numpy(), 0.1)
+        #             # im2show = vis_detections_color(im2show, j, imdb.classes[j], cls_dets.cpu().numpy(), 0.1)
+        #     if not os.path.exists(os.path.join(args.save_dir, 'images')):
+        #         os.mkdir(os.path.join(args.save_dir, 'images'))
+        #     img_name = os.path.join(args.save_dir, 'images/{}_{}_{}.png'.format(args.session, epoch, step))
+        #     re = cv2.imwrite(img_name, im2show)
+        #     print('image save : {}'.format(img_name))
 
     
     save_name = os.path.join(output_dir, 'faster_rcnn_{}_{}_{}.pth'.format(args.session, epoch, step))

@@ -158,7 +158,7 @@ class _ProposalLayer(nn.Module):
             output[i,:,0] = i
             output[i,:num_proposal,1:] = proposals_single
 
-        return output
+        return output, num_proposal
 
     def backward(self, top, propagate_down, bottom):
         """This layer does not propagate gradients."""

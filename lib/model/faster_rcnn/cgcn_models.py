@@ -51,11 +51,18 @@ class GCN(nn.Module):
         self.dropout = dropout
 
     def forward(self, x, adj):
+        # bg_x = x[1]
+        bg_x = torch.tensor(1.0).cuda()
         x = F.relu(self.gc1(x, adj))
         # x = F.dropout(x, self.dropout, training=self.training)
         # x = self.gc2(x, adj)
         x = F.relu(self.gc2(x, adj))
         # x = F.dropout(x, self.dropout, training=self.training)
+
+        # remove_bg_x = torch.cat((bg_x.view(-1, 1), x[1:]), dim = 0)
+        # # cls_re_score, regular_term = self.Class_GCN(cls_score[:,1:])
+        # # new_cls_score = torch.cat((cls_score[:,0].view(-1,1),cls_re_score),dim = -1)
+        # return remove_bg_x
         return x
 
 
@@ -74,7 +81,7 @@ class CGCN(torch.nn.Module):
         self.A.requires_grad = False
         
     def forward(self, roi_socres):
-        roi_socres = F.softmax(roi_socres, dim=1)
+        
         # x2 = F.softmax(x.reshape(-1,1),dim = 0).reshape(-1, 20) #Max 0.0013
         
         adj = self.gen_adj(self.A).detach()
@@ -93,7 +100,7 @@ class CGCN(torch.nn.Module):
         # output = torch.mul(roi_socres, x1.view(1,-1))
         # output[:, 0] = roi_socres[:, 0]
         
-        return output, regular_term
+        return  torch.mul(roi_socres, x1.view(1,-1)), regular_term
     
     def gen_A(self, num_classes, t, adj_file):
         import pickle
@@ -106,12 +113,15 @@ class CGCN(torch.nn.Module):
         _adj[_adj >= t] = 1
         _adj = _adj * 0.25 / (_adj.sum(0, keepdims=True) + 1e-6)
         _adj = _adj + np.identity(num_classes, np.int)
+        
         return _adj
+        # _adj[1:, 1:] = _adj[1:, 1:] + np.identity(20, np.int)
 
     def gen_adj(self, A):
         D = torch.pow(A.sum(1).float(), -0.5)
         D = torch.diag(D)
         adj = torch.matmul(torch.matmul(A, D).t(), D)
+        adj[0][0] = 0
         return adj
 
     # def forward(self, input, target, reg_target, prop_type):
